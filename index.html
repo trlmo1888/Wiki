@@ -66,7 +66,7 @@
     padding:6px 16px;
     display:flex;
     align-items:center;
-    gap:16px;
+    gap:14px;
     font-size:13px;
   }
   #topbar .spacer{flex:1;}
@@ -76,6 +76,18 @@
     padding:4px 8px;
     font-size:13px;
     width:220px;
+  }
+  #menu-toggle{
+    display:none;
+    align-items:center;
+    justify-content:center;
+    border:none;
+    background:none;
+    padding:0;
+    height:22px;
+    width:24px;
+    cursor:pointer;
+    color:#202122;
   }
   #shell{
     display:flex;
@@ -112,6 +124,37 @@
     border-left:1px solid #eaecf0;
     padding:20px 28px 60px;
     min-width:0;
+  }
+  #sidebar-backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.35);
+    z-index:1400;
+  }
+
+  /* ---- Móvil: el menú lateral se convierte en panel deslizante ---- */
+  @media (max-width: 760px){
+    #menu-toggle{ display:inline-flex; }
+    #topbar input{ width:auto; flex:1; min-width:0; }
+    #main{
+      border-left:none;
+      padding:16px 16px 50px;
+    }
+    #main p{ text-align:left; }
+    #sidebar{
+      position:fixed;
+      top:0; left:0; bottom:0;
+      width:230px;
+      background:#fff;
+      z-index:1500;
+      overflow-y:auto;
+      transform:translateX(-100%);
+      transition:transform 0.2s ease;
+      box-shadow:2px 0 10px rgba(0,0,0,0.2);
+    }
+    #sidebar.open{ transform:translateX(0); }
+    #sidebar-backdrop.show{ display:block; }
   }
   h1.article-title{
     font-family: Georgia, 'Linux Libertine', serif;
@@ -156,6 +199,17 @@
   }
   .portada-col-main{flex:2; min-width:300px;}
   .portada-col-side{flex:1; min-width:220px;}
+
+  /* En iPhone / móvil: una sola columna, nunca dos lado a lado */
+  @media (max-width: 760px){
+    .portada-grid{
+      display:block;
+    }
+    .portada-col-main, .portada-col-side{
+      width:100%;
+      min-width:0;
+    }
+  }
   .portada-box{
     border:1px solid #a2a9b1;
     background:#f8f9fa;
@@ -268,10 +322,19 @@
 <body>
 
 <div id="topbar">
-  <div id="logo-trigger" style="padding:0;font-size:15px;cursor:pointer;" title="">W</div>
+  <button id="menu-toggle" aria-label="Menú" title="">
+    <svg width="20" height="14" viewBox="0 0 20 14" xmlns="http://www.w3.org/2000/svg">
+      <rect y="0" width="20" height="2" rx="1" fill="currentColor"/>
+      <rect y="6" width="20" height="2" rx="1" fill="currentColor"/>
+      <rect y="12" width="20" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+  <img id="logo-trigger" src="icon.png" alt="W" style="height:22px;width:22px;cursor:pointer;display:block;" title="">
   <div class="spacer"></div>
   <input type="text" placeholder="Buscar en Wikipedia" disabled>
 </div>
+
+<div id="sidebar-backdrop"></div>
 
 <div id="secretwrap">
   <div id="secretbox">
@@ -360,6 +423,22 @@ function saveSecretWord(){
   render();
 }
 document.getElementById('logo-trigger').addEventListener('click', openSecretPanel);
+
+/* =====================  MENÚ MÓVIL (☰)  ===================== */
+
+function openMobileSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-backdrop').classList.add('show');
+}
+function closeMobileSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('show');
+}
+document.getElementById('menu-toggle').addEventListener('click', openMobileSidebar);
+document.getElementById('sidebar-backdrop').addEventListener('click', closeMobileSidebar);
+// Al navegar a un artículo (clic en un enlace del menú, o en cualquier
+// palabra del texto), el menú móvil se cierra solo si estaba abierto.
+window.addEventListener('hashchange', closeMobileSidebar);
 document.getElementById('secretwrap').addEventListener('click', (e) => {
   if(e.target.id === 'secretwrap') closeSecretPanel();
 });
