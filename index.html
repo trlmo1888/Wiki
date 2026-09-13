@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wikipedia, la enciclopedia libre</title>
+
+<!-- Icono y ajustes para "Añadir a pantalla de inicio" (Android/Chrome) -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.png" type="image/png">
+<meta name="theme-color" content="#ffffff">
+
+<!-- Ajustes específicos para iOS/Safari -->
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wikipedia">
+
+<!--
+  ============================================================================
+  BOOK TEST DIGITAL — motor de forzaje por equívoco
+  ============================================================================
+  ESTRUCTURA:
+  1) CALENTAMIENTO (genuino, dos clics de demostración): "demoA" ofrece
+     3 palabras (arte/ciencia/navegación), cada una lleva a un artículo
+     distinto real; cada uno de esos artículos ofrece a su vez 2 palabras
+     (renacimiento/barroco) que ya aterrizan directamente en la primera
+     página de la cadena forzada (p1). Ese es el momento exacto en el que
+     "empieza la magia": desde ahí, cada clic ya cuenta una letra.
+  2) CADENA FORZADA (páginas p1, p2, ... pfinal): se genera SOLA al
+     escribir una palabra en el panel oculto (clic en la "W" del logo).
+     Por cada letra se crea una página con 3 palabras reales que empiezan
+     por esa letra; da igual cuál elija el espectador, las tres llevan al
+     mismo siguiente artículo. Al final (pfinal) no hay más enlaces.
+  3) MENÚ DE EDICIÓN: ve a la URL con #admin al final (ej. index.html#admin)
+     para revisar o retocar a mano lo que se generó, sin tocar código.
+     Se guarda en este navegador (localStorage). Desde ahí puedes exportar
+     el JSON para pegarlo de forma permanente en este archivo.
+
+  AYUDA EN ESCENA: pulsa la tecla "r" en cualquier momento durante la
+  función para que se ilumine un segundo una palabra al azar de la
+  página actual — te ayuda a no dudar sobre cuál clicar.
+
+  SINTAXIS para marcar enlaces en el editor: [[palabra|id_destino]]
+  Ejemplo: "Se presentó una [[muestra|p2]] pública del invento."
+  ============================================================================
+-->
+
+<style>
+  :root{
+    --link-blue:#0645ad;
+    --border:#a2a9b1;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: Arial, Helvetica, sans-serif;
+    background:#fff;
+    color:#202122;
+    font-size:15px;
+    line-height:1.6;
+  }
+  #topbar{
+    background:#f8f9fa;
+    border-bottom:1px solid var(--border);
+    padding:6px 16px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    font-size:13px;
+  }
+  #topbar .spacer{flex:1;}
+  #topbar input{
+    border:1px solid var(--border);
+    border-radius:2px;
+    padding:4px 8px;
+    font-size:13px;
+    width:220px;
+  }
+  #shell{
+    display:flex;
+    max-width:1100px;
+    margin:0 auto;
+  }
+  #sidebar{
+    width:165px;
+    padding:16px 10px;
+    font-size:12.5px;
+    color:#202122;
+    flex-shrink:0;
+  }
+  #sidebar h3{
+    font-size:12px;
+    color:#54595d;
+    margin:14px 0 6px;
+    border-bottom:1px solid #eaecf0;
+    padding-bottom:4px;
+  }
+  #sidebar ul{list-style:none;padding:0;margin:0;}
+  #sidebar li{margin:4px 0;}
+  #sidebar a{color:var(--link-blue);text-decoration:none;}
+  #logo{
+    font-family: Georgia, 'Linux Libertine', serif;
+    font-size:20px;
+    font-weight:bold;
+    letter-spacing:0.5px;
+    padding:16px 10px 0;
+  }
+  #logo small{display:block;font-size:10px;font-weight:normal;color:#54595d;}
+  #main{
+    flex:1;
+    border-left:1px solid #eaecf0;
+    padding:20px 28px 60px;
+    min-width:0;
+  }
+  h1.article-title{
+    font-family: Georgia, 'Linux Libertine', serif;
+    font-weight:normal;
+    font-size:28px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:6px;
+    margin:0 0 14px;
+  }
+  .meta{
+    font-size:12px;
+    color:#54595d;
+    margin-bottom:16px;
+  }
+  .infobox{
+    float:right;
+    width:220px;
+    border:1px solid var(--border);
+    background:#f8f9fa;
+    margin:0 0 14px 18px;
+    font-size:12.5px;
+  }
+  .infobox .thumb{
+    width:100%;
+    height:130px;
+    background:#dcdcdc;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#888;
+    font-size:11px;
+  }
+  .infobox .cap{padding:6px 8px;color:#54595d;font-size:11px;border-top:1px solid var(--border);}
+  p{margin:0 0 14px;text-align:justify;}
+
+  /* ---- Portada estilo Wikipedia real ---- */
+  .portada-grid{
+    display:flex;
+    gap:22px;
+    flex-wrap:wrap;
+    margin-top:10px;
+  }
+  .portada-col-main{flex:2; min-width:300px;}
+  .portada-col-side{flex:1; min-width:220px;}
+  .portada-box{
+    border:1px solid #a2a9b1;
+    background:#f8f9fa;
+    border-radius:4px;
+    padding:12px 16px;
+    margin-bottom:16px;
+  }
+  .portada-h2{
+    font-family: Georgia, 'Linux Libertine', serif;
+    font-weight:normal;
+    font-size:17px;
+    margin:0 0 10px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:5px;
+    color:#0645ad;
+  }
+  .portada-list{margin:0; padding-left:18px; font-size:13.5px;}
+  .portada-list li{margin-bottom:6px;}
+
+  a.wlink{
+    color:var(--link-blue);
+    text-decoration:none;
+    cursor:pointer;
+    border-radius:2px;
+  }
+  a.wlink:hover{text-decoration:underline;}
+  a.wlink.sugerido{
+    box-shadow:0 0 0 3px rgba(255,193,7,0.55);
+    background:rgba(255,193,7,0.15);
+  }
+  .endnote{
+    margin-top:30px;
+    padding-top:10px;
+    border-top:1px solid #eaecf0;
+    font-size:12px;
+    color:#72777d;
+  }
+  #debugbar{
+    position:fixed;
+    bottom:0;left:0;right:0;
+    background:#111;
+    color:#0f0;
+    font-family:monospace;
+    font-size:12px;
+    padding:6px 12px;
+    z-index:999;
+  }
+
+  /* ---- Panel oculto: palabra secreta (se abre al clicar el logo "W") ---- */
+  #secretwrap{
+    position:fixed;
+    top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.45);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+  }
+  #secretbox{
+    background:#fff;
+    border-radius:6px;
+    padding:22px 24px;
+    width:300px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.3);
+    font-family:Arial, sans-serif;
+  }
+  #secretbox h3{margin:0 0 4px;font-size:15px;}
+  #secretbox p{font-size:12px;color:#54595d;margin:0 0 12px;text-align:left;}
+  #secretbox input{
+    width:100%;
+    padding:8px 10px;
+    font-size:15px;
+    border:1px solid #bbb;
+    border-radius:4px;
+    text-transform:uppercase;
+    box-sizing:border-box;
+  }
+  #secretbox .btnrow{display:flex;gap:8px;margin-top:14px;}
+  #secretbox button{
+    flex:1;
+    padding:8px 0;
+    border-radius:4px;
+    border:1px solid #888;
+    background:#f8f9fa;
+    cursor:pointer;
+    font-size:13px;
+  }
+  #secretbox button.primary{background:#0645ad;color:#fff;border-color:#0645ad;}
+  #topbar #logo{cursor:pointer;}
+
+  /* ---- Panel de administración ---- */
+  #adminwrap{max-width:900px;margin:20px auto;padding:0 20px 60px;font-family:Arial, sans-serif;}
+  #adminwrap h1{font-size:22px;}
+  #adminwrap .note{background:#fef6e0;border:1px solid #e7c46b;padding:10px 14px;font-size:13px;border-radius:4px;margin-bottom:18px;}
+  .pagecard{border:1px solid #ccc;border-radius:6px;padding:14px;margin-bottom:14px;background:#fafafa;}
+  .pagecard label{display:block;font-size:12px;font-weight:bold;margin:8px 0 3px;color:#333;}
+  .pagecard input[type=text]{width:100%;padding:6px 8px;font-size:14px;border:1px solid #bbb;border-radius:3px;}
+  .pagecard textarea{width:100%;min-height:110px;padding:8px;font-size:13.5px;font-family:monospace;border:1px solid #bbb;border-radius:3px;}
+  .pagecard .row{display:flex;gap:10px;align-items:center;justify-content:space-between;}
+  .pagecard .del{color:#b00020;background:none;border:none;cursor:pointer;font-size:12px;}
+  .btnbar{display:flex;gap:10px;margin:18px 0;flex-wrap:wrap;}
+  .btnbar button, .btnbar a{
+    padding:9px 16px;border-radius:4px;border:1px solid #888;background:#fff;
+    cursor:pointer;font-size:13.5px;text-decoration:none;color:#202122;
+  }
+  .btnbar button.primary{background:#0645ad;color:#fff;border-color:#0645ad;}
+  #exportbox{width:100%;min-height:220px;font-family:monospace;font-size:12px;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="logo-trigger" style="padding:0;font-size:15px;cursor:pointer;" title="">W</div>
+  <div class="spacer"></div>
+  <input type="text" placeholder="Buscar en Wikipedia" disabled>
+</div>
+
+<div id="secretwrap">
+  <div id="secretbox">
+    <h3>Palabra secreta</h3>
+    <p>Escribe la palabra y se generará automáticamente todo el recorrido (artículos y enlaces) para que acabe deletreándola.</p>
+    <input type="text" id="secretinput" placeholder="Ej: CLAUSTRO">
+    <div class="btnrow">
+      <button onclick="closeSecretPanel()">Cancelar</button>
+      <button class="primary" onclick="saveSecretWord()">Generar cadena</button>
+    </div>
+  </div>
+</div>
+
+<div id="shell">
+  <div id="sidebar">
+    <div id="logo">Wikipedia<small>La enciclopedia libre</small></div>
+    <h3>Navegación</h3>
+    <ul>
+      <li><a href="#portada">Portada</a></li>
+      <li><a href="javascript:void(0)">Portal de la comunidad</a></li>
+      <li><a href="javascript:void(0)">Actualidad</a></li>
+      <li><a href="javascript:void(0)">Cambios recientes</a></li>
+      <li><a href="javascript:void(0)">Página aleatoria</a></li>
+    </ul>
+    <h3>Herramientas</h3>
+    <ul>
+      <li><a href="javascript:void(0)">Lo que enlaza aquí</a></li>
+      <li><a href="javascript:void(0)">Subir archivo</a></li>
+      <li><a href="javascript:void(0)">Páginas especiales</a></li>
+    </ul>
+  </div>
+
+  <div id="main"></div>
+</div>
+
+<div id="adminwrap" style="display:none;"></div>
+
+<div id="debugbar" style="display:none;"></div>
+
+<script>
+/* =====================  DATOS POR DEFECTO  ===================== */
+
+// Cada vez que se corrige o cambia el motor de generación, se sube este
+// número. Si el navegador tiene guardada una cadena hecha con una
+// versión anterior, se borra automáticamente para evitar mezclar
+// páginas antiguas (con reglas viejas) con el código nuevo.
+const ENGINE_VERSION = "3";
+
+function getTargetWord(){
+  return localStorage.getItem('bt_target_word') || 'MAGIA';
+}
+function setTargetWord(word){
+  localStorage.setItem('bt_target_word', word.trim().toUpperCase());
+}
+
+function openSecretPanel(){
+  document.getElementById('secretinput').value = getTargetWord();
+  document.getElementById('secretwrap').style.display = 'flex';
+  document.getElementById('secretinput').focus();
+}
+function closeSecretPanel(){
+  document.getElementById('secretwrap').style.display = 'none';
+}
+function regenerateChainForWord(word){
+  const chain = buildAutoChain(word);
+  if(!chain) return false;
+  const custom = loadCustomPages();
+  // Elimina cualquier cadena anterior (p1, p2, ... pfinal) antes de poner la nueva
+  Object.keys(custom).forEach(k => {
+    if(/^p\d+$/.test(k) || k === 'pfinal') delete custom[k];
+  });
+  Object.assign(custom, chain);
+  saveCustomPages(custom);
+  return true;
+}
+
+function saveSecretWord(){
+  const val = document.getElementById('secretinput').value.trim();
+  if(!val){ closeSecretPanel(); return; }
+  setTargetWord(val);
+  const ok = regenerateChainForWord(val);
+  closeSecretPanel();
+  if(ok){
+    alert('Cadena generada para "' + getTargetWord() + '". Ve a la portada para probarla (o edítala a mano en #admin).');
+  }
+  render();
+}
+document.getElementById('logo-trigger').addEventListener('click', openSecretPanel);
+document.getElementById('secretwrap').addEventListener('click', (e) => {
+  if(e.target.id === 'secretwrap') closeSecretPanel();
+});
+
+const DEFAULT_PAGES = {
+
+  portada: {
+    title: "Wikipedia",
+    infobox:false,
+    body: `Bienvenido a Wikipedia, la enciclopedia libre que cualquiera puede editar.
+
+Artículo destacado de hoy: [[Curiosidades de la historia|demoA]].`
+  },
+
+  /* ---------- CALENTAMIENTO (genuino, dos clics de demostración) ---------- */
+  demoA: {
+    title: "Curiosidades de la historia",
+    infobox:false,
+    body: `A lo largo de los siglos han surgido inventos, movimientos y descubrimientos que cambiaron por completo nuestra forma de vida.
+
+Algunos de los ámbitos más estudiados son el [[arte|demoA1]], la [[ciencia|demoA2]] y la [[navegación|demoA3]], cada uno con su propia y fascinante evolución.`
+  },
+  demoA1: {
+    title: "Arte",
+    infobox:false,
+    body: `El arte abarca disciplinas tan diversas como la pintura, la escultura o la arquitectura, y ha acompañado a la humanidad desde sus primeras manifestaciones.
+
+Dos corrientes especialmente influyentes fueron el [[renacimiento|p1]] y el [[barroco|p1]], que marcaron distintas maneras de entender la belleza.`
+  },
+  demoA2: {
+    title: "Ciencia",
+    infobox:false,
+    body: `El método científico permitió sistematizar la observación de la naturaleza y sentar las bases del conocimiento moderno.
+
+Entre sus grandes hitos destacan el [[renacimiento|p1]] como periodo de efervescencia intelectual y los avances asociados al [[barroco|p1]] en la representación del mundo natural.`
+  },
+  demoA3: {
+    title: "Navegación",
+    infobox:false,
+    body: `La exploración marítima permitió conectar continentes enteros y transformó por completo el comercio mundial.
+
+Este periodo de expansión estuvo influido tanto por ideas del [[renacimiento|p1]] como por la estética del [[barroco|p1]] en la construcción naval.`
+  },
+
+  /* La cadena forzada (p1, p2, p3... y pfinal) ya NO se escribe a mano:
+     se genera automáticamente según la palabra secreta. Ver GENERADOR
+     AUTOMÁTICO más abajo. */
+};
+
+/* =====================  GENERADOR AUTOMÁTICO  ===================== */
+
+// Banco de ~1200 palabras reales en español (sustantivos y adjetivos
+// comunes), usado para buscar, para cada letra, palabras que la tengan
+// en 2ª, 3ª o 4ª posición (se prueba en ese orden) y solo si no hay
+// suficientes candidatas se recurre a la 1ª posición. Así se evita que
+// siempre "empiece por esa letra", que es lo que quedaba raro.
+const MASTER_WORDS = [
+"Historia","Ciencia","Cultura","Sociedad","Naturaleza","Tecnología","Universo","Planeta","Océano","Montaña",
+"Bosque","Desierto","Volcán","Glaciar","Cascada","Río","Valle","Isla","Continente","Ciudad",
+"Pueblo","Aldea","Castillo","Palacio","Catedral","Templo","Monasterio","Puente","Torre","Muralla",
+"Fortaleza","Laberinto","Jardín","Parque","Plaza","Mercado","Puerto","Estación","Aeropuerto","Biblioteca",
+"Museo","Teatro","Auditorio","Galería","Observatorio","Universidad","Escuela","Hospital","Fábrica","Taller",
+"Laboratorio","Invento","Mecanismo","Herramienta","Instrumento","Motor","Máquina","Robot","Ordenador","Programa",
+"Sistema","Circuito","Satélite","Cohete","Telescopio","Microscopio","Molécula","Átomo","Elemento","Mineral",
+"Cristal","Diamante","Metal","Bronce","Hierro","Acero","Madera","Piedra","Arcilla","Cerámica",
+"Tejido","Pintura","Escultura","Dibujo","Grabado","Mural","Retrato","Paisaje","Fotografía","Cámara",
+"Lienzo","Pincel","Escenario","Vestuario","Máscara","Disfraz","Guitarra","Violín","Piano","Tambor",
+"Flauta","Trompeta","Sinfonía","Melodía","Canción","Poema","Novela","Cuento","Leyenda","Mito",
+"Fábula","Relato","Crónica","Biografía","Diario","Periódico","Revista","Editorial","Idioma","Alfabeto",
+"Gramática","Vocabulario","Traducción","Diccionario","Enciclopedia","Filosofía","Religión","Creencia","Ritual","Ceremonia",
+"Festival","Tradición","Costumbre","Folclore","Gastronomía","Cocina","Receta","Ingrediente","Especia","Cosecha",
+"Cultivo","Agricultura","Ganadería","Pesca","Cacería","Selva","Sabana","Pradera","Estepa","Tundra",
+"Arrecife","Acantilado","Bahía","Golfo","Estrecho","Península","Archipiélago","Meseta","Cordillera","Colina",
+"Cueva","Gruta","Manantial","Laguna","Pantano","Delta","Afluente","Corriente","Marea","Tormenta",
+"Huracán","Terremoto","Erupción","Eclipse","Constelación","Galaxia","Cometa","Meteorito","Asteroide","Nebulosa",
+"Astronauta","Explorador","Navegante","Marinero","Piloto","Aviador","Ingeniero","Arquitecto","Escultor","Pintor",
+"Músico","Escritor","Poeta","Filósofo","Científico","Médico","Farmacéutico","Enfermero","Abogado","Juez",
+"Gobernante","Emperador","Monarca","Príncipe","Princesa","Noble","Caballero","Guerrero","Soldado","General",
+"Ejército","Batalla","Guerra","Tratado","Alianza","Imperio","República","Monarquía","Democracia","Constitución",
+"Justicia","Libertad","Igualdad","Economía","Comercio","Industria","Moneda","Impuesto","Presupuesto","Inversión",
+"Empresa","Producto","Servicio","Transporte","Vehículo","Automóvil","Bicicleta","Motocicleta","Tren","Barco",
+"Avión","Globo","Submarino","Túnel","Carretera","Autopista","Sendero","Ruta","Mapa","Brújula",
+"Ancla","Timón","Remo","Faro","Muelle","Velero","Yate","Cohete","Antena","Radio",
+"Televisión","Periodismo","Editorial","Imprenta","Papiro","Pergamino","Manuscrito","Jeroglífico","Escritura","Tinta",
+"Bikini","Anorak","Software","Otoño","Piraña","Araña","Campaña","Compañero","Cabaña","Éxito",
+"Examen","Taxi","Texto","Reflexión","Máximo","Oxígeno","Auxilio","Rayo","Playa","Mayo",
+"Payaso","Desayuno","Ensayo","Cabeza","Corazón","Pizarra","Danza","Confianza","Esperanza","Arqueología",
+"Paquete","Civilización","Organización","Investigador","Documentación","Restauración","Interpretación","Clasificación","Comunicación","Construcción",
+"Exploración","Extraordinario","Conservación","Universalidad","Modernización","Excavación"
+];
+
+// Red de seguridad: por si en el futuro se añade sin querer una palabra
+// repetida al banco, se eliminan aquí los duplicados automáticamente.
+const MASTER_WORDS_UNIQUE = [...new Set(MASTER_WORDS)];
+
+// Reserva para letras poco frecuentes en español (K, Ñ, W, X, Y, Z),
+// donde el banco general apenas tiene candidatas: se usan solo como
+// último recurso, siempre en 1ª posición.
+const RARE_FALLBACK = {
+  K:["Kiosco","Kilómetro","Karate","Kiwi"],
+  Ñ:["Ñandú","Ñame","Ñoño","Ñu"],
+  W:["Wifi","Waffle"],
+  X:["Xilófono","Xilografía"],
+  Y:["Yate","Yunque","Yeso","Yogur"],
+  Z:["Zafiro","Zoológico","Zapato","Zorro","Zona"]
+};
+
+const TITLES = [
+  "Contexto histórico","Desarrollo y evolución","Aspectos culturales",
+  "Estudios y hallazgos","Impacto y legado","Perspectivas actuales",
+  "Orígenes y difusión","Análisis e interpretación","Elementos destacados",
+  "Referencias cruzadas","Visión general","Notas complementarias",
+  "Ámbito de estudio","Trasfondo y evolución","Datos relevantes"
+];
+
+const LINK_TEMPLATES = [
+  "Uno de los elementos que suele mencionarse en este contexto es {W}, cuya relevancia ha sido señalada por distintos especialistas.",
+  "También cabe destacar el papel de {W} dentro de este ámbito, un aspecto recogido en varias publicaciones especializadas.",
+  "Otro punto de interés lo constituye {W}, que aparece citado con frecuencia en la bibliografía disponible sobre la materia.",
+  "Del mismo modo, resulta habitual encontrar referencias a {W} al abordar esta cuestión desde una perspectiva más amplia.",
+  "No menos importante es la mención a {W}, presente en buena parte de los estudios consultados sobre el tema.",
+  "Asimismo, se ha señalado en más de una ocasión la conexión de este campo con {W}.",
+  "Conviene además detenerse en {W}, un aspecto que distintos autores han tratado con cierto detalle."
+];
+
+// Se usan cuando dos palabras caen juntas en el mismo párrafo (variación
+// natural: no todos los artículos reparten las palabras exactamente igual).
+const LINK_TEMPLATES_PAIR = [
+  "Dentro de este campo resulta habitual relacionar {W1} con otros elementos como {W2}, dos nociones que suelen aparecer en la misma bibliografía.",
+  "Es frecuente encontrar mencionado {W1} en un primer momento y, algo más adelante en el mismo párrafo, una referencia a {W2}.",
+  "Algunos autores han señalado un vínculo entre {W1} y, ya hacia el final de esta idea, {W2}, dos elementos que a menudo se citan juntos.",
+  "No es raro que {W1} aparezca mencionado junto con, más adelante, {W2}, dada la relación que ambos mantienen dentro de este apartado.",
+  "Tanto {W1}, por un lado, como {W2}, por otro, figuran entre los aspectos más citados por quienes han estudiado esta cuestión."
+];
+
+// Para cuando caben tres palabras en el mismo párrafo (variación natural,
+// como en un artículo real): se procura que no queden pegadas entre sí.
+const LINK_TEMPLATES_TRIPLE = [
+  "En este campo suelen citarse aspectos como {W1}; más adelante, dentro del mismo párrafo, se menciona también {W2} y, finalmente, {W3}.",
+  "Resulta habitual encontrar primero una referencia a {W1}, seguida algo después de {W2} y, ya hacia el final, de {W3}.",
+  "Tanto {W1} como, un poco más adelante, {W2} y también {W3} aparecen agrupados con frecuencia en la bibliografía consultada."
+];
+
+const FILLER_INTRO = [
+  "Este artículo recoge una síntesis de los principales estudios realizados hasta la fecha, ofreciendo una visión general del tema desde distintas disciplinas.",
+  "El interés por este ámbito ha crecido notablemente en las últimas décadas, dando lugar a numerosas investigaciones y publicaciones especializadas.",
+  "Diversos autores han abordado esta cuestión desde perspectivas complementarias, lo que ha enriquecido considerablemente el debate académico.",
+  "Se trata de un campo de estudio amplio, cuyas fronteras se han ido redefiniendo a medida que surgían nuevas aportaciones."
+];
+
+const FILLER_MID = [
+  "Con el paso de los años, este campo ha ido incorporando nuevas perspectivas procedentes de disciplinas afines, lo que ha ampliado notablemente su alcance.",
+  "Buena parte de la bibliografía disponible coincide en señalar la complejidad del tema, así como la diversidad de enfoques posibles a la hora de abordarlo.",
+  "Los especialistas suelen coincidir en que se trata de un ámbito en constante revisión, sujeto a nuevas interpretaciones a medida que aparecen nuevos datos.",
+  "Cabe señalar que buena parte de las fuentes consultadas proceden de contextos y épocas distintas, lo que enriquece considerablemente el análisis conjunto."
+];
+
+const FILLER_OUTRO = [
+  "Estas ideas continúan siendo objeto de debate y revisión por parte de la comunidad académica.",
+  "El análisis de estos elementos sigue abierto, y se espera que futuras investigaciones aporten nuevos matices al respecto.",
+  "Con todo, el consenso general apunta a la relevancia de seguir profundizando en este campo en los próximos años.",
+  "Distintas escuelas de pensamiento mantienen posturas variadas al respecto, sin que exista aún una conclusión unánime sobre la cuestión."
+];
+
+// Párrafos adicionales que se añaden al final del artículo únicamente
+// para alargarlo un poco más; su contenido es genérico y no necesita
+// tener relación estricta con el resto del texto.
+const FILLER_EXTRA = [
+  "Con el tiempo, distintas instituciones han ido documentando y catalogando la información disponible, facilitando así el acceso a futuras generaciones de investigadores.",
+  "En paralelo, han surgido iniciativas dedicadas a divulgar estos contenidos a un público más amplio, más allá del ámbito estrictamente académico.",
+  "Numerosos archivos y colecciones conservan materiales relacionados con esta cuestión, muchos de los cuales aún permanecen sin catalogar por completo.",
+  "Este tipo de temas suele abordarse también en congresos y encuentros especializados, donde se comparten avances y nuevas líneas de trabajo.",
+  "Cabe mencionar asimismo que distintas generaciones han interpretado estos hechos de manera diferente, en función del contexto histórico de cada época."
+];
+
+function normalizeSecretWord(raw){
+  return raw
+    .toUpperCase()
+    .replace(/Ñ/g, '\u0001')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\u0001/g,'Ñ')
+    .replace(/[^A-ZÑ]/g,'');
+}
+
+function normalizeWordForMatch(w){
+  return w.toUpperCase()
+    .replace(/Ñ/g, '\u0001')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\u0001/g,'Ñ');
+}
+
+function shuffleArray(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// Busca, en un orden aleatorio entre [3ª, 4ª, 5ª] (y solo si hace falta,
+// la 2ª), suficientes palabras reales que tengan "letter" en esa posición.
+// Al barajar el orden cada vez, no siempre "gana" la misma posición (antes
+// tendía a caer siempre en la 3ª). NUNCA se usa la 1ª posición salvo que
+// sea absolutamente imposible encontrar candidatas en otra (letras
+// rarísimas como Ñ, K, W). Se exige un mínimo real de 3 palabras: nunca
+// se acepta un grupo más pequeño antes de recurrir al último recurso.
+function pickWordsForLetter(letter, usedSet){
+  const WANT = 5;
+  const ORDER = shuffleArray([3,4,5]).concat([2]);
+
+  for(const minRequired of [5,4,3]){
+    for(const pos of ORDER){
+      const candidates = MASTER_WORDS_UNIQUE.filter(w => {
+        const norm = normalizeWordForMatch(w);
+        return norm.length >= pos && norm[pos-1] === letter && !usedSet.has(w.toLowerCase());
+      });
+      if(candidates.length >= minRequired){
+        const chosen = shuffleArray(candidates).slice(0, WANT);
+        chosen.forEach(w => usedSet.add(w.toLowerCase()));
+        return chosen;
+      }
+    }
+  }
+
+  // Último recurso absoluto: letras poco frecuentes sin al menos 3
+  // candidatas en posición 2-5. Aquí sí se permite la 1ª posición.
+  console.warn('No se encontraron al menos 3 palabras con "' + letter + '" fuera de la 1ª posición; se usa fallback.');
+  const posOneCandidates = MASTER_WORDS_UNIQUE.filter(w => {
+    const norm = normalizeWordForMatch(w);
+    return norm[0] === letter && !usedSet.has(w.toLowerCase());
+  });
+  const bank = posOneCandidates.length ? posOneCandidates : (RARE_FALLBACK[letter] || []);
+  let chosen = shuffleArray(bank.filter(w => !usedSet.has(String(w).toLowerCase()))).slice(0,WANT);
+  while(chosen.length < Math.min(4, bank.length || 1)){
+    chosen.push(bank[Math.floor(Math.random()*bank.length)] || letter);
+  }
+  if(chosen.length === 0) chosen = [letter];
+  chosen.forEach(w => usedSet.add(String(w).toLowerCase()));
+  return chosen;
+}
+
+// Grupos de palabras que "pegan" temáticamente. Se usan solo para decidir
+// si dos palabras pueden compartir el mismo párrafo; si dos palabras no
+// aparecen juntas en ningún grupo, se mantienen en párrafos separados
+// aunque coincidan en la letra/posición forzada.
+const TOPIC_GROUPS = [
+  ["Cometa","Planeta","Galaxia","Estrella","Universo","Asteroide","Nebulosa","Meteorito","Constelación","Eclipse","Satélite","Telescopio","Astronauta","Observatorio"],
+  ["Pintura","Escultura","Dibujo","Grabado","Mural","Retrato","Lienzo","Pincel","Galería","Museo","Pintor","Escultor","Orfebre","Vitral","Estatua"],
+  ["Guitarra","Violín","Piano","Tambor","Flauta","Trompeta","Sinfonía","Melodía","Canción","Órgano","Músico"],
+  ["Novela","Cuento","Leyenda","Mito","Fábula","Relato","Crónica","Biografía","Diario","Poema","Poeta","Escritor","Editorial","Manuscrito","Novelista"],
+  ["Abogado","Juez","Jurado","Justicia","Constitución","Tratado","Ley"],
+  ["Ciencia","Química","Laboratorio","Investigación","Científico","Hallazgo","Molécula","Átomo","Elemento","Mineral","Microscopio","Investigador"],
+  ["Barco","Navío","Velero","Yate","Ancla","Timón","Remo","Faro","Muelle","Puerto","Submarino","Marinero","Navegante","Brújula"],
+  ["Catedral","Templo","Palacio","Castillo","Fortaleza","Monasterio","Santuario","Muralla","Torre"],
+  ["Bosque","Selva","Desierto","Volcán","Glaciar","Río","Valle","Isla","Océano","Montaña","Cascada","Laguna","Pantano","Delta","Cordillera","Meseta","Acantilado","Arrecife","Bahía","Golfo","Estrecho","Península","Archipiélago","Colina","Cueva","Gruta","Manantial"],
+  ["Avión","Automóvil","Bicicleta","Motocicleta","Tren","Globo","Cohete","Vehículo","Aviador","Piloto"],
+  ["Imperio","República","Monarquía","Democracia","Monarca","Príncipe","Princesa","Noble","Emperador","Gobierno","Nación","Ejército","Guerra","Batalla","Soldado","General","Alianza"],
+  ["Ordenador","Robot","Programa","Sistema","Circuito","Satélite","Software","Máquina","Motor","Herramienta","Instrumento","Invento","Mecanismo","Ingeniero"],
+  ["Huracán","Terremoto","Erupción","Tormenta","Marea"],
+  ["Mercado","Moneda","Banco","Impuesto","Presupuesto","Inversión","Empresa","Comercio","Industria","Economía"],
+  ["Idioma","Alfabeto","Gramática","Vocabulario","Traducción","Diccionario","Enciclopedia","Escritura","Jeroglífico","Tinta","Papiro","Pergamino"],
+  ["Religión","Creencia","Ritual","Ceremonia","Filosofía","Mito","Filósofo"],
+  ["Médico","Farmacéutico","Enfermero","Hospital"],
+  ["Cocina","Receta","Ingrediente","Especia","Cosecha","Cultivo","Gastronomía","Agricultura"]
+];
+
+function sameTopic(a, b){
+  const ak = a.toLowerCase(), bk = b.toLowerCase();
+  return TOPIC_GROUPS.some(group => {
+    const g = group.map(w => w.toLowerCase());
+    return g.includes(ak) && g.includes(bk);
+  });
+}
+
+// Busca, entre las palabras restantes, el grupo más coherente posible
+// (primero intenta un trío que "pegue" temáticamente, luego una pareja).
+// Devuelve los ÍNDICES dentro de "remaining", o null si no hay ninguno.
+function findCoherentGroup(remaining){
+  for(let i = 0; i < remaining.length; i++){
+    for(let j = i+1; j < remaining.length; j++){
+      for(let k = j+1; k < remaining.length; k++){
+        if(sameTopic(remaining[i], remaining[j]) &&
+           sameTopic(remaining[j], remaining[k]) &&
+           sameTopic(remaining[i], remaining[k])){
+          return [i, j, k];
+        }
+      }
+    }
+  }
+  for(let i = 0; i < remaining.length; i++){
+    for(let j = i+1; j < remaining.length; j++){
+      if(sameTopic(remaining[i], remaining[j])) return [i, j];
+    }
+  }
+  return null;
+}
+
+// Reparte las palabras clicables en párrafos, como en un artículo real:
+// - Si hay palabras con sentido entre sí, se agrupan (pareja o incluso trío).
+// - Si no lo hay, igualmente se permite juntar dos de vez en cuando (para
+//   que no sea siempre "una palabra por párrafo", monótono y forzado),
+//   pero las plantillas usadas colocan algo de texto entre ambas dentro
+//   del mismo párrafo, nunca una pegada justo a la otra.
+function groupWords(words){
+  const remaining = words.slice();
+  const groups = [];
+
+  while(remaining.length){
+    const found = findCoherentGroup(remaining);
+    if(found){
+      const picked = found.map(idx => remaining[idx]);
+      found.slice().sort((a,b) => b-a).forEach(idx => remaining.splice(idx,1));
+      groups.push(picked);
+      continue;
+    }
+    if(remaining.length >= 2 && Math.random() < 0.4){
+      groups.push([remaining.shift(), remaining.shift()]);
+    } else {
+      groups.push([remaining.shift()]);
+    }
+  }
+  return groups;
+}
+
+// El banco de palabras está escrito con mayúscula inicial (más cómodo de
+// leer al editarlo), pero al insertarlas en medio de una frase deben ir
+// en minúscula, como en cualquier artículo real — salvo que sea un
+// nombre propio (persona, ciudad, artista...). De momento el banco no
+// incluye nombres propios, así que aquí se pasan todas a minúscula;
+// si en el futuro se añaden nombres propios, basta con listarlos en
+// PROPER_NOUNS para que se respete su mayúscula.
+const PROPER_NOUNS = new Set([]); // ej: ["Madrid","Einstein","Picasso"]
+
+function displayCase(word){
+  if(PROPER_NOUNS.has(word)) return word;
+  return word.charAt(0).toLowerCase() + word.slice(1);
+}
+
+function buildWordParagraphs(words, nextId){
+  const groups = groupWords(words);
+  const singleTpls = shuffleArray(LINK_TEMPLATES);
+  const pairTpls = shuffleArray(LINK_TEMPLATES_PAIR);
+  const tripleTpls = shuffleArray(LINK_TEMPLATES_TRIPLE);
+  let si = 0, pi = 0, ti = 0;
+
+  return groups.map(group => {
+    if(group.length === 3){
+      const tpl = tripleTpls[ti % tripleTpls.length]; ti++;
+      return tpl
+        .replace('{W1}', `[[${displayCase(group[0])}|${nextId}]]`)
+        .replace('{W2}', `[[${displayCase(group[1])}|${nextId}]]`)
+        .replace('{W3}', `[[${displayCase(group[2])}|${nextId}]]`);
+    }
+    if(group.length === 2){
+      const tpl = pairTpls[pi % pairTpls.length]; pi++;
+      return tpl
+        .replace('{W1}', `[[${displayCase(group[0])}|${nextId}]]`)
+        .replace('{W2}', `[[${displayCase(group[1])}|${nextId}]]`);
+    }
+    const tpl = singleTpls[si % singleTpls.length]; si++;
+    return tpl.replace('{W}', `[[${displayCase(group[0])}|${nextId}]]`);
+  });
+}
+
+// Construye toda la cadena forzada (p1, p2, ... y pfinal) para una palabra dada.
+function buildAutoChain(rawWord){
+  const word = normalizeSecretWord(rawWord);
+  if(!word) return null;
+
+  const letters = word.split('');
+  const used = new Set();
+  const titlePool = shuffleArray(TITLES);
+  const pages = {};
+
+  letters.forEach((letter, idx) => {
+    const pageId = 'p' + (idx+1);
+    const nextId = (idx === letters.length-1) ? 'pfinal' : ('p' + (idx+2));
+    const words = pickWordsForLetter(letter, used);
+    const wordParagraphs = buildWordParagraphs(words, nextId);
+    const intro = FILLER_INTRO[Math.floor(Math.random()*FILLER_INTRO.length)];
+    const mid = FILLER_MID[Math.floor(Math.random()*FILLER_MID.length)];
+    const outro = FILLER_OUTRO[Math.floor(Math.random()*FILLER_OUTRO.length)];
+    const title = titlePool.length ? titlePool.pop() : ("Aspectos relacionados " + (idx+1));
+
+    const extra = FILLER_EXTRA[Math.floor(Math.random()*FILLER_EXTRA.length)];
+    const paragraphs = [intro, mid, ...wordParagraphs, outro, extra];
+
+    pages[pageId] = {
+      title,
+      infobox: false,
+      body: paragraphs.join('\n\n')
+    };
+  });
+
+  pages['pfinal'] = {
+    title: "Cierre y consideraciones finales",
+    infobox: false,
+    body: `Este recorrido reúne distintos aspectos relacionados entre sí, ofreciendo una visión de conjunto sobre el tema tratado.\n\n*Fin del recorrido.*`
+  };
+
+  return pages;
+}
+
+/* =====================  PERSISTENCIA / FUSIÓN  ===================== */
+
+function loadCustomPages(){
+  try{
+    const raw = localStorage.getItem('bt_custom_pages');
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function saveCustomPages(obj){
+  localStorage.setItem('bt_custom_pages', JSON.stringify(obj));
+}
+function getAllPages(){
+  return Object.assign({}, DEFAULT_PAGES, loadCustomPages());
+}
+
+/* =====================  PARSER [[palabra|destino]]  ===================== */
+
+function parseBody(raw){
+  const withLinks = raw.replace(/\[\[([^\|\]]+)\|([^\]]+)\]\]/g, (m, word, target) => {
+    return `<a class="wlink" href="#${target.trim()}">${word.trim()}</a>`;
+  });
+  return withLinks
+    .split(/\n\s*\n/)
+    .map(par => `<p>${par.trim().replace(/\n/g,' ')}</p>`)
+    .join('');
+}
+
+/* =====================  PORTADA (estilo Wikipedia real)  ===================== */
+
+const PORTADA_HTML = `
+  <h1 class="article-title" style="border-bottom:3px solid #a2a9b1;">Wikipedia</h1>
+  <div class="meta">La enciclopedia libre que cualquiera puede editar — 1 987 342 artículos en español</div>
+
+  <div class="portada-grid">
+    <div class="portada-col-main">
+      <div class="portada-box">
+        <h2 class="portada-h2">Artículo destacado</h2>
+        <p style="margin:0;">A lo largo de la historia, distintas civilizaciones han desarrollado técnicas, herramientas y tradiciones que continúan estudiándose en la actualidad. Este artículo recorre algunos de esos hitos y su influencia posterior en la cultura, la ciencia y el arte.
+        (<a class="wlink" href="#demoA">Seguir leyendo…</a>)</p>
+      </div>
+
+      <div class="portada-box">
+        <h2 class="portada-h2">¿Sabías que...</h2>
+        <ul class="portada-list">
+          <li>...la imprenta de tipos móviles se extendió por Europa en apenas unas décadas tras su invención?</li>
+          <li>...algunas bibliotecas antiguas llegaron a reunir más de medio millón de manuscritos?</li>
+          <li>...ciertos instrumentos de navegación se siguieron usando durante siglos sin apenas modificaciones?</li>
+        </ul>
+      </div>
+
+      <div class="portada-box">
+        <h2 class="portada-h2">Categorías</h2>
+        <p style="margin:0;">Geografía · Historia · Ciencia · Arte · Biografías · Sociedad · Tecnología · Deportes · Cultura · Filosofía</p>
+      </div>
+    </div>
+
+    <div class="portada-col-side">
+      <div class="portada-box">
+        <h2 class="portada-h2">Efeméride</h2>
+        <p style="margin:0;">Un día como hoy, distintos acontecimientos históricos —descubrimientos, tratados, inauguraciones— dejaron huella en ámbitos muy diversos, desde la ciencia hasta la política.</p>
+      </div>
+
+      <div class="portada-box">
+        <h2 class="portada-h2">Wikipedia en otros idiomas</h2>
+        <ul class="portada-list">
+          <li>English</li>
+          <li>Français</li>
+          <li>Deutsch</li>
+          <li>Italiano</li>
+          <li>Português</li>
+        </ul>
+      </div>
+
+      <div class="portada-box">
+        <h2 class="portada-h2">Wikipedia en cifras</h2>
+        <p style="margin:0;">Millones de artículos, cientos de idiomas y miles de personas voluntarias colaboran a diario para mantener y ampliar este proyecto.</p>
+      </div>
+    </div>
+  </div>
+`;
+
+/* =====================  RENDER ARTÍCULO  ===================== */
+
+function render(){
+  const hash = location.hash.replace('#','');
+
+  if(hash === 'admin'){
+    document.getElementById('shell').style.display = 'none';
+    document.getElementById('adminwrap').style.display = 'block';
+    renderAdmin();
+    updateDebug('admin');
+    return;
+  }
+  document.getElementById('shell').style.display = 'flex';
+  document.getElementById('adminwrap').style.display = 'none';
+
+  const pages = getAllPages();
+  let id = hash || 'portada';
+  if(!pages[id]) id = 'portada';
+
+  if(id === 'portada'){
+    document.getElementById('main').innerHTML = PORTADA_HTML;
+    window.scrollTo(0,0);
+    updateDebug(id);
+    return;
+  }
+
+  const p = pages[id];
+
+  document.getElementById('main').innerHTML = `
+    <h1 class="article-title">${p.title}</h1>
+    <div class="meta">De Wikipedia, la enciclopedia libre</div>
+    ${parseBody(p.body)}
+    <div class="endnote">Este artículo forma parte del proyecto Wikipedia.</div>
+  `;
+  window.scrollTo(0,0);
+  updateDebug(id);
+}
+
+/* =====================  AYUDA EN ESCENA: tecla "r" ===================== */
+
+document.addEventListener('keydown', (e) => {
+  if(e.key.toLowerCase() !== 'r') return;
+  const links = Array.from(document.querySelectorAll('#main a.wlink'));
+  if(links.length === 0) return;
+  const chosen = links[Math.floor(Math.random() * links.length)];
+  chosen.classList.add('sugerido');
+  setTimeout(() => chosen.classList.remove('sugerido'), 1200);
+});
+
+/* =====================  DEBUG BAR (?debug=1) ===================== */
+
+function updateDebug(currentId){
+  const params = new URLSearchParams(location.search);
+  const bar = document.getElementById('debugbar');
+  if(params.get('debug') === '1'){
+    bar.style.display = 'block';
+    bar.textContent = `[DEBUG] página actual: ${currentId} — palabra objetivo: ${getTargetWord()} — pulsa "r" para sugerir un enlace al azar — quita ?debug=1 antes de actuar`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+/* =====================  PANEL DE ADMINISTRACIÓN ===================== */
+
+function renderAdmin(){
+  const pages = getAllPages();
+  const ids = Object.keys(pages);
+
+  let cards = ids.map(id => {
+    const p = pages[id];
+    return `
+      <div class="pagecard" data-id="${id}">
+        <div class="row">
+          <label style="margin:0;">ID de página</label>
+          <button class="del" onclick="adminDeletePage('${id}')">Eliminar</button>
+        </div>
+        <input type="text" class="f-id" value="${id}">
+        <label>Título</label>
+        <input type="text" class="f-title" value="${(p.title||'').replace(/"/g,'&quot;')}">
+        <label>Cuerpo — usa [[palabra|id_destino]] para marcar enlaces</label>
+        <textarea class="f-body">${(p.body||'')}</textarea>
+      </div>`;
+  }).join('');
+
+  document.getElementById('adminwrap').innerHTML = `
+    <h1>Menú de edición — Book Test</h1>
+    <div class="note">
+      La cadena forzada (p1, p2... y pfinal) se genera automáticamente al
+      escribir una palabra en el panel de la "W" del logo. Aquí puedes
+      revisar el resultado y retocarlo a mano si quieres cambiar alguna
+      palabra o frase. Para marcar una palabra clicable usa
+      <code>[[palabra|id_destino]]</code> (ej: <code>Se presentó una [[muestra|p2]] pública</code>).<br>
+      Los cambios se guardan en este navegador. Usa "Exportar" para pegarlos
+      de forma permanente en el código si vas a usar otro dispositivo.
+    </div>
+    <div id="cardswrap">${cards}</div>
+    <div class="btnbar">
+      <button onclick="adminAddPage()">+ Añadir página</button>
+      <button class="primary" onclick="adminSaveAll()">Guardar cambios</button>
+      <a href="#portada">Ir a la portada (probar)</a>
+      <button onclick="adminExport()">Exportar código</button>
+      <button onclick="adminReset()">Restaurar valores de fábrica</button>
+    </div>
+    <div id="exportwrap" style="display:none;">
+      <label>Copia este bloque y pégalo sustituyendo DEFAULT_PAGES en el archivo si quieres dejarlo fijo:</label>
+      <textarea id="exportbox" readonly></textarea>
+    </div>
+  `;
+}
+
+function collectFormPages(){
+  const cards = document.querySelectorAll('#cardswrap .pagecard');
+  const result = {};
+  cards.forEach(card => {
+    const id = card.querySelector('.f-id').value.trim();
+    if(!id) return;
+    const title = card.querySelector('.f-title').value.trim();
+    const body = card.querySelector('.f-body').value;
+    result[id] = { title, infobox: false, body };
+  });
+  return result;
+}
+
+function adminAddPage(){
+  const newId = 'pagina' + Math.floor(Math.random()*9000+1000);
+  const custom = loadCustomPages();
+  const current = collectFormPages();
+  Object.assign(custom, current);
+  custom[newId] = {title:'Nuevo artículo', infobox:false, body:'Escribe aquí el texto. Marca enlaces con [[palabra|id_destino]].'};
+  saveCustomPages(custom);
+  renderAdmin();
+}
+
+function adminDeletePage(id){
+  if(!confirm('¿Eliminar la página "' + id + '"?')) return;
+  const custom = loadCustomPages();
+  const current = collectFormPages();
+  Object.assign(custom, current);
+  delete custom[id];
+  // si era una página de fábrica, "ocultarla" sobreescribiéndola vacía no es ideal;
+  // simplemente si es de fábrica, no se puede borrar de DEFAULT_PAGES, solo de las personalizadas.
+  saveCustomPages(custom);
+  renderAdmin();
+}
+
+function adminSaveAll(){
+  const custom = loadCustomPages();
+  const current = collectFormPages();
+  Object.assign(custom, current);
+  saveCustomPages(custom);
+  alert('Guardado. Puedes probarlo en "Ir a la portada".');
+  renderAdmin();
+}
+
+function adminExport(){
+  adminSaveAll();
+  const all = getAllPages();
+  const box = document.getElementById('exportbox');
+  document.getElementById('exportwrap').style.display = 'block';
+  box.value = JSON.stringify(all, null, 2);
+  box.focus();
+  box.select();
+}
+
+function adminReset(){
+  if(!confirm('Esto borra tus cambios guardados en este navegador y vuelve al ejemplo original (MAGIA). ¿Continuar?')) return;
+  localStorage.removeItem('bt_custom_pages');
+  renderAdmin();
+}
+
+function ensureChainExists(){
+  const storedVersion = localStorage.getItem('bt_engine_version');
+  if(storedVersion !== ENGINE_VERSION){
+    // El motor ha cambiado desde la última vez: se borra la cadena vieja
+    // para no mezclar páginas generadas con reglas antiguas.
+    localStorage.removeItem('bt_custom_pages');
+    localStorage.setItem('bt_engine_version', ENGINE_VERSION);
+  }
+  const custom = loadCustomPages();
+  const hasChain = Object.keys(custom).some(k => /^p\d+$/.test(k));
+  if(!hasChain){
+    regenerateChainForWord(getTargetWord()); // por defecto: MAGIA
+  }
+}
+
+window.addEventListener('hashchange', render);
+window.addEventListener('DOMContentLoaded', () => {
+  ensureChainExists();
+  render();
+});
+</script>
+
+</body>
+</html>
