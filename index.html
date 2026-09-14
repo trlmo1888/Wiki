@@ -639,17 +639,72 @@ function shuffleArray(arr){
   return a;
 }
 
-// Busca, en un orden aleatorio entre [3ª, 4ª, 5ª] (y solo si hace falta,
-// la 2ª), suficientes palabras reales que tengan "letter" en esa posición.
-// Al barajar el orden cada vez, no siempre "gana" la misma posición (antes
-// tendía a caer siempre en la 3ª). NUNCA se usa la 1ª posición salvo que
-// sea absolutamente imposible encontrar candidatas en otra (letras
-// rarísimas como Ñ, K, W). Se exige un mínimo real de 3 palabras: nunca
-// se acepta un grupo más pequeño antes de recurrir al último recurso.
-function pickWordsForLetter(letter, usedSet){
-  const WANT = 5;
-  const ORDER = shuffleArray([3,4,5]).concat([2]);
+// Elige UNA sola posición (columna) que sirva para TODAS las letras de la
+// palabra secreta. Es imprescindible: si la posición cambiase de página en
+// página, luego no se podrían escribir las palabras subrayadas una debajo
+// de otra y rodear en línea recta la columna que forma la palabra. Prioridad:
+// 2ª/3ª/4ª/5ª barajadas, nunca la 1ª (esa solo como último recurso absoluto,
+// letra a letra, si de verdad no hay forma de mantener una única columna).
+function chooseGlobalPosition(letters){
+  const candidatePositions = shuffleArray([3,4,5,2]);
 
+  // Primero, intento perfecto: una posición que sirva para TODAS las letras.
+  for(const pos of candidatePositions){
+    const ok = letters.every(letter => {
+      const count = MASTER_WORDS_UNIQUE.filter(w => {
+        const norm = normalizeWordForMatch(w);
+        return norm.length >= pos && norm[pos-1] === letter;
+      }).length;
+      return count >= 3;
+    });
+    if(ok) return pos;
+  }
+
+  // Si ninguna posición sirve para el 100% (letra rarísima tipo "J"),
+  // elegimos la que sirva para el MÁXIMO número de letras: así solo se
+  // rompe la alineación en la letra realmente imposible, no en toda la
+  // palabra. pickWordsForLetter ya sabe recurrir a otra posición solo
+  // para esa letra puntual.
+  let best = candidatePositions[0];
+  let bestScore = -1;
+  candidatePositions.forEach(pos => {
+    const score = letters.filter(letter => {
+      const count = MASTER_WORDS_UNIQUE.filter(w => {
+        const norm = normalizeWordForMatch(w);
+        return norm.length >= pos && norm[pos-1] === letter;
+      }).length;
+      return count >= 3;
+    }).length;
+    if(score > bestScore){ bestScore = score; best = pos; }
+  });
+  return best;
+}
+
+// Busca suficientes palabras reales que tengan "letter" en la posición fija
+// "fixedPos" (la misma para toda la cadena, ver chooseGlobalPosition). Solo si
+// esa posición concreta no da suficientes candidatas para esta letra en
+// particular (algo raro, p. ej. por letras ya muy consumidas) se recurre a
+// otra posición para esta página suelta, y como último recurso absoluto a la
+// 1ª posición. Se exige un mínimo real de 3 palabras.
+function pickWordsForLetter(letter, usedSet, fixedPos){
+  const WANT = 5;
+
+  if(fixedPos){
+    for(const minRequired of [5,4,3]){
+      const candidates = MASTER_WORDS_UNIQUE.filter(w => {
+        const norm = normalizeWordForMatch(w);
+        return norm.length >= fixedPos && norm[fixedPos-1] === letter && !usedSet.has(w.toLowerCase());
+      });
+      if(candidates.length >= minRequired){
+        const chosen = shuffleArray(candidates).slice(0, WANT);
+        chosen.forEach(w => usedSet.add(w.toLowerCase()));
+        return chosen;
+      }
+    }
+    console.warn('No se encontraron suficientes palabras con "' + letter + '" en la posición fija ' + fixedPos + '; se rompe la alineación solo en esta página.');
+  }
+
+  const ORDER = shuffleArray([3,4,5,2].filter(p => p !== fixedPos));
   for(const minRequired of [5,4,3]){
     for(const pos of ORDER){
       const candidates = MASTER_WORDS_UNIQUE.filter(w => {
@@ -665,7 +720,7 @@ function pickWordsForLetter(letter, usedSet){
   }
 
   // Último recurso absoluto: letras poco frecuentes sin al menos 3
-  // candidatas en posición 2-5. Aquí sí se permite la 1ª posición.
+  // candidatas en ninguna posición 2-5. Aquí sí se permite la 1ª posición.
   console.warn('No se encontraron al menos 3 palabras con "' + letter + '" fuera de la 1ª posición; se usa fallback.');
   const posOneCandidates = MASTER_WORDS_UNIQUE.filter(w => {
     const norm = normalizeWordForMatch(w);
@@ -814,10 +869,15 @@ function buildAutoChain(rawWord){
   const titlePool = shuffleArray(TITLES);
   const pages = {};
 
+  // Una única posición (columna) para TODAS las páginas de esta palabra:
+  // así, al final, todas las letras forzadas caen en el mismo lugar de cada
+  // palabra subrayada y se pueden alinear una debajo de otra.
+  const fixedPos = chooseGlobalPosition(letters);
+
   letters.forEach((letter, idx) => {
     const pageId = 'p' + (idx+1);
     const nextId = (idx === letters.length-1) ? 'pfinal' : ('p' + (idx+2));
-    const words = pickWordsForLetter(letter, used);
+    const words = pickWordsForLetter(letter, used, fixedPos);
     const wordParagraphs = buildWordParagraphs(words, nextId);
     const intro = FILLER_INTRO[Math.floor(Math.random()*FILLER_INTRO.length)];
     const mid = FILLER_MID[Math.floor(Math.random()*FILLER_MID.length)];
