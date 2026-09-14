@@ -229,7 +229,7 @@
   .portada-list{margin:0; padding-left:18px; font-size:13.5px;}
   .portada-list li{margin-bottom:6px;}
 
-  a.wlink{
+  .wlink{
     color:var(--link-blue);
     text-decoration:none;
     cursor:pointer;
@@ -322,7 +322,7 @@
 <body>
 
 <div id="topbar">
-  <button id="menu-toggle" aria-label="Menú" title="">
+  <button id="menu-toggle" aria-label="Ir a la portada" title="">
     <svg width="20" height="14" viewBox="0 0 20 14" xmlns="http://www.w3.org/2000/svg">
       <rect y="0" width="20" height="2" rx="1" fill="currentColor"/>
       <rect y="6" width="20" height="2" rx="1" fill="currentColor"/>
@@ -424,20 +424,22 @@ function saveSecretWord(){
 }
 document.getElementById('logo-trigger').addEventListener('click', openSecretPanel);
 
-/* =====================  MENÚ MÓVIL (☰)  ===================== */
+/* =====================  BOTÓN ☰ (vuelve a la portada)  ===================== */
 
-function openMobileSidebar(){
-  document.getElementById('sidebar').classList.add('open');
-  document.getElementById('sidebar-backdrop').classList.add('show');
-}
 function closeMobileSidebar(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-backdrop').classList.remove('show');
 }
-document.getElementById('menu-toggle').addEventListener('click', openMobileSidebar);
+function goHome(){
+  closeMobileSidebar(); // por si hubiera quedado algo abierto de antes
+  if(location.hash === '' || location.hash === '#'){
+    render(); // ya estábamos en la portada: forzamos el redibujado igualmente
+  } else {
+    location.hash = '';
+  }
+}
+document.getElementById('menu-toggle').addEventListener('click', goHome);
 document.getElementById('sidebar-backdrop').addEventListener('click', closeMobileSidebar);
-// Al navegar a un artículo (clic en un enlace del menú, o en cualquier
-// palabra del texto), el menú móvil se cierra solo si estaba abierto.
 window.addEventListener('hashchange', closeMobileSidebar);
 document.getElementById('secretwrap').addEventListener('click', (e) => {
   if(e.target.id === 'secretwrap') closeSecretPanel();
@@ -895,9 +897,9 @@ function buildAutoChain(rawWord){
   });
 
   pages['pfinal'] = {
-    title: "Cierre y consideraciones finales",
+    title: "Consideraciones finales",
     infobox: false,
-    body: `Este recorrido reúne distintos aspectos relacionados entre sí, ofreciendo una visión de conjunto sobre el tema tratado.\n\n*Fin del recorrido.*`
+    body: `Este recorrido reúne distintos aspectos relacionados entre sí, ofreciendo una visión de conjunto sobre el tema tratado. A lo largo de las últimas décadas, el interés por este tipo de contenidos ha crecido de forma notable, dando lugar a numerosas [[investigaciones|]] y publicaciones especializadas.\n\nBuena parte de la bibliografía disponible coincide en señalar la complejidad del tema, así como la diversidad de enfoques posibles a la hora de abordarlo. No es raro que la [[historia|]] aparezca mencionada junto con, más adelante, la [[cultura|]], dada la relación que ambas mantienen dentro de este apartado.\n\nOtro punto de interés lo constituye la evolución que ha experimentado esta materia con el paso del tiempo, marcada por distintas corrientes y sensibilidades, con referencias frecuentes al [[arte|]] y a la [[tradición|]] popular.\n\nCon esto concluye la selección de contenidos relacionados propuesta a partir del artículo original.`
   };
 
   return pages;
@@ -921,8 +923,16 @@ function getAllPages(){
 /* =====================  PARSER [[palabra|destino]]  ===================== */
 
 function parseBody(raw){
-  const withLinks = raw.replace(/\[\[([^\|\]]+)\|([^\]]+)\]\]/g, (m, word, target) => {
-    return `<a class="wlink" href="#${target.trim()}">${word.trim()}</a>`;
+  const withLinks = raw.replace(/\[\[([^\|\]]+)\|([^\]]*)\]\]/g, (m, word, target) => {
+    target = target.trim();
+    if(!target){
+      // Enlace "muerto": misma apariencia (color, subrayado al pasar por
+      // encima) que un enlace real, pero no lleva a ninguna parte. Se usa
+      // en la página final, para que parezca una página normal aunque no
+      // haya más palabras que anotar.
+      return `<span class="wlink">${word.trim()}</span>`;
+    }
+    return `<a class="wlink" href="#${target}">${word.trim()}</a>`;
   });
   return withLinks
     .split(/\n\s*\n/)
